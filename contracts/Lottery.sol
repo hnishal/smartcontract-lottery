@@ -5,12 +5,12 @@ import "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
 import "@chainlink/contracts/src/v0.6/VRFConsumerBase.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract Lottery is Ownable, VRFConsumerBase {
+contract Lottery is VRFConsumerBase, Ownable {
     address payable[] public players;
     address payable public recentWinner;
     uint256 public randomness;
     uint256 public usdEntryFee;
-    AggregatorV3Interface internal ethUsdPriceFee;
+    AggregatorV3Interface internal ethUsdPriceFeed;
     enum LOTTERY_STATE {
         OPEN,
         CLOSED,
@@ -18,7 +18,7 @@ contract Lottery is Ownable, VRFConsumerBase {
     }
     LOTTERY_STATE public lottery_state;
     uint256 public fee;
-    bytes32 public keyHash;
+    bytes32 public keyhash;
     event RequestedRandomness(bytes32 requestId);
 
     constructor(
@@ -26,13 +26,13 @@ contract Lottery is Ownable, VRFConsumerBase {
         address _vrfCoordinator,
         address _link,
         uint256 _fee,
-        bytes32 _keyHash
+        bytes32 _keyhash
     ) public VRFConsumerBase(_vrfCoordinator, _link) {
         usdEntryFee = 50 * (10**18);
-        ethUsdPriceFee = AggregatorV3Interface(_priceFeedAddress);
+        ethUsdPriceFeed = AggregatorV3Interface(_priceFeedAddress);
         lottery_state = LOTTERY_STATE.CLOSED;
         fee = _fee;
-        keyHash = keyHash;
+        keyhash = _keyhash;
     }
 
     function enter() public payable {
@@ -43,7 +43,7 @@ contract Lottery is Ownable, VRFConsumerBase {
     }
 
     function getEntranceFee() public view returns (uint256) {
-        (, int256 price, , , ) = ethUsdPriceFee.latestRoundData();
+        (, int256 price, , , ) = ethUsdPriceFeed.latestRoundData();
         /*for example we need to convert $50 to eth at rate 1eth= $2000
         so we would do, requiredfee = 50/2000
         but solidity dosent support decimcal divsion 
@@ -83,7 +83,7 @@ contract Lottery is Ownable, VRFConsumerBase {
         // all this  predictable variable will make us vulnerable
 
         lottery_state = LOTTERY_STATE.CALCULATING_WINNER;
-        bytes32 requestId = requestRandomness(keyHash, fee);
+        bytes32 requestId = requestRandomness(keyhash, fee);
         emit RequestedRandomness(requestId);
     }
 
@@ -96,10 +96,11 @@ contract Lottery is Ownable, VRFConsumerBase {
             "You arent there yet!..."
         );
         require(_randomness > 0, "randomness not found");
-        uint256 indexofWinner = _randomness % players.length;
+        uint256 indexOfWinner = _randomness % players.length;
 
-        recentWinner = players[indexofWinner];
+        recentWinner = players[indexOfWinner];
         recentWinner.transfer(address(this).balance);
+
         players = new address payable[](0);
         lottery_state == LOTTERY_STATE.CLOSED;
         randomness = _randomness;
